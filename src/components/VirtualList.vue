@@ -57,7 +57,7 @@ let currentEndingRow = 0;
 let startPadding = 0;
 let endPadding = 0;
 
-let isInitialMount = true;
+let isInitialObserve = true;
 
 onMounted(async () => {
   for (let i=0; i<itemCount; i+=rowCount){
@@ -68,9 +68,9 @@ onMounted(async () => {
     heights.value.push(row);
   }
 
-  rendered.value = heights.value.slice(0, maxRenderedRows);
+  rendered.value = heights.value.slice(0, 1);
 
-  currentEndingRow = maxRenderedRows - 1;
+  currentEndingRow = 0;
 
   await nextTick();
 
@@ -89,13 +89,13 @@ function getItemIndex(rowIndex: number, colIndex: number) {
 function addScrollObserver(){
   scrollObserver = new IntersectionObserver(async (entries) => {
 
-    entries.forEach((entry, index) => {
+    entries.forEach(async (entry, index) => {
       if (index === entries.length - 1) {
-        isInitialMount = false;
+        isInitialObserve = false;
         return;
       }
 
-      if (isInitialMount) {
+      if (isInitialObserve) {
         return;
       }
 
@@ -145,6 +145,8 @@ function addScrollObserver(){
           currentStartingRow--;
           endPadding += rowHeight;
         }
+        
+        await reobserve();
 
         return;
       }
@@ -155,27 +157,37 @@ function addScrollObserver(){
         if (isFirstRow && currentStartingRow > 0) {
           currentStartingRow--;
           rendered.value.unshift(heights.value[currentStartingRow]);
-          startPadding -= rowHeight;
+          if (startPadding > 0) {
+            startPadding -= rowHeight;
+          }
+        
+          await reobserve();
           return;
         }
  
         if (isLastRow && currentEndingRow < heights.value.length-1) {
           currentEndingRow++;
           rendered.value.push(heights.value[currentEndingRow]);
-          endPadding -= rowHeight;
+          if (endPadding > 0) {
+            endPadding -= rowHeight;
+          }
+        
+          await reobserve();
           return;
         }
       }
     });
 
     await nextTick();
+
+    
+
   }, { threshold: [0, 1] });
 
   if (items.value) {
     items.value.forEach((item) => {
       scrollObserver?.observe(item);
-    })
-    
+    });    
   }
 }
 
@@ -207,6 +219,16 @@ function addScrollEndObserver() {
   if (scrollEnd.value) {
     scrollEndObserver.observe(scrollEnd.value);
   }  
+}
+
+async function reobserve() {
+  await nextTick(); 
+
+  isInitialObserve = true;
+  items.value = Array.from(document.querySelectorAll('[data-item-element]'));
+  items.value.forEach((item) => {
+    scrollObserver.observe(item);
+  });    
 }
 
 onBeforeUnmount(() => {
