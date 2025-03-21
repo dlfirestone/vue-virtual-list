@@ -11,9 +11,10 @@
       <template v-for="(row, rowIndex) in rendered">
         <div class="item" 
           v-for="(renderedItem, colIndex) in row"
-          data-item-element>
+          data-item-element
+          :key="getItemIndex(rowIndex, colIndex)"
+          :data-item-index="getItemIndex(rowIndex, colIndex)">
           <div class="item__content"
-            :key="rowIndex * colIndex"
             :style="{'height': `${renderedItem}px`}"></div>
         </div>
       </template>
@@ -23,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { Ref, computed, nextTick, onBeforeMount, onMounted, ref, useTemplateRef } from "vue";
+import { Ref, computed, nextTick, onBeforeMount, onBeforeUnmount, onMounted, onUnmounted, ref, useTemplateRef } from "vue";
 
 type Matrix = Array<Array<number>>;
 
@@ -48,8 +49,10 @@ let scrollObserver: IntersectionObserver;
 let scrollEndObserver: IntersectionObserver;
 
 const rendered: Ref<Matrix> = ref([]);
-const currentStartingRow = ref(0);
-const currentEndingRow = ref(0);
+let currentStartingRow = 0;
+let currentEndingRow = 0;
+
+let isInitialMount = true;
 
 onMounted(async () => {
   for (let i=0; i<itemCount; i+=rowCount){
@@ -71,22 +74,44 @@ onMounted(async () => {
   addScrollObserver();
 });
 
+function getItemIndex(rowIndex: number, colIndex: number) {
+  const itemRow = currentStartingRow + rowIndex;
+  return (itemRow * rowCount) + colIndex;
+}
+
 function addScrollObserver(){
   scrollObserver = new IntersectionObserver((entries) => {
-    for (let entry in entries) {
+
+    entries.forEach((entry, index) => {
+      if (index === entries.length - 1) {
+        isInitialMount = false;
+        return;
+      }
+
+      if (isInitialMount) {
+        return;
+      }
+
+      let entryIndex = 0;
       let rowIndex = 0;
+      let colIndex = 0;
       let isFirstInRow = false;
 
-      // Search only the first and last row for intersection changes
-      for (let i=0; i<rendered.value.length; i+=rendered.value.length-1) {
-        const row = rendered.value[i];
-        const entryIndex = row.indexOf(entry.target);
-        if (entryIndex === 0) {
-          isFirstInRow = true;
-          rowIndex = i;
-          break;
-        }
+      const entryIndexRaw = (entry.target as HTMLElement).getAttribute('data-item-index');
+
+      if (!entryIndexRaw) {
+        return;
       }
+
+      entryIndex = parseInt(entryIndexRaw);
+
+      if (isNaN(entryIndex)){
+        return;
+      }
+
+      rowIndex = entryIndex / rowCount;
+      colIndex = entryIndex % rowCount;
+      isFirstInRow = colIndex === 0;
 
       // Only detect for the first item in the row so it's not firing multiple times
       if (!isFirstInRow) {
@@ -95,6 +120,11 @@ function addScrollObserver(){
 
       const isFirstRow = rowIndex === 0;
       const isLastRow = rowIndex === rendered.value.length - 1;
+
+      if (!isFirstRow && !isLastRow) {
+        return;
+      }
+
       if (entry.intersectionRatio === 0) {
         rendered.value.splice(rowIndex, 1);
 
@@ -111,21 +141,24 @@ function addScrollObserver(){
       if (entry.intersectionRatio === 1) {
         if (isFirstRow && currentStartingRow > 0) {
           currentStartingRow--;
-          rendered.value.unshift(heights.value.at(currentStartingRow));
+          rendered.value.unshift(heights.value[currentStartingRow]);
           return;
         }
-
+ 
         if (isLastRow && currentEndingRow < heights.value.length-1) {
           currentEndingRow++;
-          rendered.value.push(heights.value.at(currentStartingRow));
+          rendered.value.push(heights.value[currentStartingRow]);
           return;
         }
       }
-    }
+    });
   }, { threshold: [0, 1] });
 
   if (items.value) {
-    scrollObserver.observe(...items.value);
+    items.value.forEach((item) => {
+      scrollObserver?.observe(item);
+    })
+    
   }
 }
 
@@ -158,6 +191,10 @@ function addScrollEndObserver() {
     scrollEndObserver.observe(scrollEnd.value);
   }  
 }
+
+onBeforeUnmount(() => {
+  scrollObserver.disconnect();
+});
 </script>
 
 <style scoped lang="scss">
