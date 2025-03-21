@@ -7,18 +7,21 @@
     <p>rendered: {{ rendered }}</p>
     <p>scrollEnd: {{ scrollEnd }}</p>
     <p>items: {{ items }}</p>
+    <div class="pad-start" :style="{height: `${startPadding}px`}"></div>
     <div class="grid">
       <template v-for="(row, rowIndex) in rendered">
         <div class="item" 
           v-for="(renderedItem, colIndex) in row"
           data-item-element
-          :key="getItemIndex(rowIndex, colIndex)"
-          :data-item-index="getItemIndex(rowIndex, colIndex)">
+          :key="`row${rowIndex}-col${colIndex}`"
+          :data-item-row="currentStartingRow + rowIndex"
+          :data-item-col="colIndex">
           <div class="item__content"
             :style="{'height': `${renderedItem}px`}"></div>
         </div>
       </template>
     </div>
+    <div class="grid__pad-end" :style="{height: `${endPadding}px`}"></div>
     <div class="scroll-end" ref="scrollEnd"></div>
   </div>
 </template>
@@ -40,7 +43,6 @@ const wrapper = useTemplateRef('wrapper');
 let items: Ref<Array<HTMLElement>> = ref([]);
 
 let renderedCount = ref(0);
-let topPadding = ref(0);
 const heights: Ref<Matrix> = ref([]);
 
 renderedCount.value = rowCount * maxRenderedRows;
@@ -48,9 +50,12 @@ renderedCount.value = rowCount * maxRenderedRows;
 let scrollObserver: IntersectionObserver;
 let scrollEndObserver: IntersectionObserver;
 
+
 const rendered: Ref<Matrix> = ref([]);
 let currentStartingRow = 0;
 let currentEndingRow = 0;
+let startPadding = 0;
+let endPadding = 0;
 
 let isInitialMount = true;
 
@@ -64,6 +69,8 @@ onMounted(async () => {
   }
 
   rendered.value = heights.value.slice(0, maxRenderedRows);
+
+  currentEndingRow = maxRenderedRows - 1;
 
   await nextTick();
 
@@ -80,7 +87,7 @@ function getItemIndex(rowIndex: number, colIndex: number) {
 }
 
 function addScrollObserver(){
-  scrollObserver = new IntersectionObserver((entries) => {
+  scrollObserver = new IntersectionObserver(async (entries) => {
 
     entries.forEach((entry, index) => {
       if (index === entries.length - 1) {
@@ -92,25 +99,24 @@ function addScrollObserver(){
         return;
       }
 
-      let entryIndex = 0;
       let rowIndex = 0;
       let colIndex = 0;
       let isFirstInRow = false;
 
-      const entryIndexRaw = (entry.target as HTMLElement).getAttribute('data-item-index');
+      const rowIndexRaw = (entry.target as HTMLElement).getAttribute('data-item-row');
+      const colIndexRaw = (entry.target as HTMLElement).getAttribute('data-item-col');
 
-      if (!entryIndexRaw) {
+      if (!rowIndexRaw || !colIndexRaw) {
         return;
       }
 
-      entryIndex = parseInt(entryIndexRaw);
+      rowIndex = parseInt(rowIndexRaw);
+      colIndex = parseInt(colIndexRaw);
 
-      if (isNaN(entryIndex)){
+      if (isNaN(rowIndex) || isNaN(colIndex)){
         return;
       }
 
-      rowIndex = entryIndex / rowCount;
-      colIndex = entryIndex % rowCount;
       isFirstInRow = colIndex === 0;
 
       // Only detect for the first item in the row so it's not firing multiple times
@@ -125,33 +131,44 @@ function addScrollObserver(){
         return;
       }
 
+      const rowHeight = heights.value[rowIndex][0]
+
+      // If a row just scrolled out of view, un-render it and increase the height of the scroll container accordingly to compensate
       if (entry.intersectionRatio === 0) {
         rendered.value.splice(rowIndex, 1);
 
         if (isFirstRow) {
           currentStartingRow++;
+          startPadding += rowHeight;
         }
         else if (isLastRow) {
           currentStartingRow--;
+          endPadding += rowHeight;
         }
 
         return;
       }
 
+
+      // If a row just scrolled into view, render the next row and decrease the height of the scroll container accordingly to compensate
       if (entry.intersectionRatio === 1) {
         if (isFirstRow && currentStartingRow > 0) {
           currentStartingRow--;
           rendered.value.unshift(heights.value[currentStartingRow]);
+          startPadding -= rowHeight;
           return;
         }
  
         if (isLastRow && currentEndingRow < heights.value.length-1) {
           currentEndingRow++;
-          rendered.value.push(heights.value[currentStartingRow]);
+          rendered.value.push(heights.value[currentEndingRow]);
+          endPadding -= rowHeight;
           return;
         }
       }
     });
+
+    await nextTick();
   }, { threshold: [0, 1] });
 
   if (items.value) {
@@ -198,16 +215,27 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
+
+.pad-start,
+.pad-end {
+  display: inline-block;
+  grid-column: 1 / -1;
+}
+
+.pad-start {
+  grid-row: 1;
+}
+
+.pad-end {
+  grid-row: -1;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   align-items: stretch;
   gap: 20px;
-
-  ::before {
-    content: '';
-    height: v-bind('topPadding');
-  }
+  grid-auto-flow: row;
 }
 
 .item {
