@@ -31,6 +31,10 @@
 import { Ref, computed, nextTick, onBeforeMount, onBeforeUnmount, onMounted, onUnmounted, ref, render, useTemplateRef } from "vue";
 
 type Matrix = Array<Array<number>>;
+enum ScrollDirection {
+  Up,
+  Down
+} 
 
 defineProps<{  }>();
 
@@ -61,6 +65,10 @@ let endPadding = 0;
 let isInitialObserve = true;
 let wasDomChanged = false;
 
+let lastScrollY = 0;
+let currentScrollY = 0;
+let currentScrollDirection = ScrollDirection.Down;
+
 onMounted(async () => {
   for (let i=0; i<itemCount; i+=rowCount){
     const row: Array<number> = [];
@@ -89,6 +97,13 @@ function getItemIndex(rowIndex: number, colIndex: number) {
 }
 
 function addScrollObserver(){
+  const thresholdIncrement = .1;
+  const observerThresholds = [];
+
+  for (let i=0; i<=1; i+=thresholdIncrement) {
+    observerThresholds.push(i);
+  }
+
   scrollObserver = new IntersectionObserver(async (entries) => {
 
     entries.forEach(async (entry, index) => {
@@ -129,6 +144,14 @@ function addScrollObserver(){
         return;
       }
 
+      currentScrollY = window.scrollY;
+      currentScrollDirection = currentScrollY > lastScrollY ? ScrollDirection.Down : ScrollDirection.Up;
+      lastScrollY = currentScrollY;
+
+      if (entry.intersectionRatio % 1 < 1 && entry.intersectionRatio % 1 > 0) {
+        return;
+      } 
+
       const isFirstCoupleRows = renderedRowIndex <= 1;
       const isLastCoupleRows = renderedRowIndex >= rendered.value.length - 2;
       const isFirstRow = renderedRowIndex === 0;
@@ -158,7 +181,12 @@ function addScrollObserver(){
       } */
 
       // scrolling up, first row comes fully into view, render the row before - decrease start padding
-      if (isFirstRow && entry.isIntersecting && entry.intersectionRatio === 1 && currentStartingRow > 0) {
+      if (currentScrollDirection === ScrollDirection.Up 
+        && isFirstRow 
+        && entry.isIntersecting 
+        && entry.intersectionRatio === 1 
+        && currentStartingRow > 0
+      ) {
         currentStartingRow--;
         rendered.value.unshift(heights.value[currentStartingRow]);
 
@@ -171,7 +199,12 @@ function addScrollObserver(){
       }
 
       // scrolling down, first row (or second, if just rendered a new one) goes out of view, remove start to current row - increase start padding
-      if (isFirstCoupleRows && !entry.isIntersecting && entry.intersectionRatio === 0 && currentStartingRow < heights.value.length - 1) {
+      if (currentScrollDirection === ScrollDirection.Down 
+        && isFirstCoupleRows 
+        && !entry.isIntersecting 
+        && entry.intersectionRatio === 0 
+        && currentStartingRow < heights.value.length - 1
+      ) {
         const removedRows = rendered.value.splice(0, rowIndex + 1);
         currentStartingRow += removedRows.length;
         let removedRowHeight = 0;
@@ -189,7 +222,12 @@ function addScrollObserver(){
       }
 
       // scrolling down, last row comes fully into view, render next row - decrease end padding
-      if (isLastRow && entry.isIntersecting && entry.intersectionRatio === 1 && currentEndingRow < heights.value.length - 1) {
+      if (currentScrollDirection === ScrollDirection.Down
+        && isLastRow 
+        && entry.isIntersecting 
+        && entry.intersectionRatio === 1 
+        && currentEndingRow < heights.value.length - 1
+      ) {
         rendered.value.push(heights.value[currentEndingRow]);
         currentEndingRow++;
 
@@ -202,7 +240,12 @@ function addScrollObserver(){
       }
 
       // scrolling up, last row (or second last, if just rendered a new one) goes out of view, remove current row to the end - increase end padding
-      if (isLastCoupleRows && !entry.isIntersecting && entry.intersectionRatio === 0 && currentEndingRow > 0) {
+      if (currentScrollDirection === ScrollDirection.Up
+        && isLastCoupleRows 
+        && !entry.isIntersecting 
+        && entry.intersectionRatio === 0 
+        && currentEndingRow > 0
+      ) {
         const removedRows = rendered.value.splice(rowIndex);
         currentEndingRow -= removedRows.length;
         let removedRowHeight = 0;
@@ -247,7 +290,7 @@ function addScrollObserver(){
       await reobserve();
     }
   }, { 
-    threshold: [0, 1] 
+    threshold: observerThresholds 
     //rootMargin: '20px 0px 20px 0px' 
   });
 
@@ -307,7 +350,6 @@ onBeforeUnmount(() => {
 
 .pad-start,
 .pad-end {
-  display: inline-block;
   grid-column: 1 / -1;
 }
 
