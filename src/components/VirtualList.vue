@@ -15,6 +15,7 @@
           data-item-element
           :key="`row${rowIndex}-col${colIndex}`"
           :data-item-row="currentStartingRow + rowIndex"
+          :data-rendered-row="rowIndex"
           :data-item-col="colIndex">
           <div class="item__content"
             :style="{'height': `${renderedItem}px`}"></div>
@@ -101,17 +102,20 @@ function addScrollObserver(){
       }
 
       let rowIndex = 0;
+      let renderedRowIndex = 0;
       let colIndex = 0;
       let isFirstInRow = false;
 
       const rowIndexRaw = (entry.target as HTMLElement).getAttribute('data-item-row');
+      const renderedRowIndexRaw = (entry.target as HTMLElement).getAttribute('data-rendered-row');
       const colIndexRaw = (entry.target as HTMLElement).getAttribute('data-item-col');
 
-      if (!rowIndexRaw || !colIndexRaw) {
+      if (!rowIndexRaw || !renderedRowIndexRaw || !colIndexRaw) {
         return;
       }
 
       rowIndex = parseInt(rowIndexRaw);
+      renderedRowIndex = parseInt(renderedRowIndexRaw);
       colIndex = parseInt(colIndexRaw);
 
       if (isNaN(rowIndex) || isNaN(colIndex)){
@@ -125,10 +129,10 @@ function addScrollObserver(){
         return;
       }
 
-      const isFirstCoupleRows = rowIndex <= 1;
-      const isLastCoupleRows = rowIndex >= rendered.value.length - 2;
-      const isFirstRow = rowIndex === 0;
-      const isLastRow = rowIndex === rendered.value.length - 1;
+      const isFirstCoupleRows = renderedRowIndex <= 1;
+      const isLastCoupleRows = renderedRowIndex >= rendered.value.length - 2;
+      const isFirstRow = renderedRowIndex === 0;
+      const isLastRow = renderedRowIndex === rendered.value.length - 1;
 
       if (!isFirstCoupleRows && !isLastCoupleRows) {
         return;
@@ -153,6 +157,37 @@ function addScrollObserver(){
         }
       } */
 
+      // scrolling up, first row comes fully into view, render the row before - decrease start padding
+      if (isFirstRow && entry.isIntersecting && entry.intersectionRatio === 1 && currentStartingRow > 0) {
+        currentStartingRow--;
+        rendered.value.unshift(heights.value[currentStartingRow]);
+
+        if (startPadding > 0) {
+          startPadding -= heights.value[currentStartingRow][0];
+        }
+        
+        wasDomChanged = true;
+        return;
+      }
+
+      // scrolling down, first row (or second, if just rendered a new one) goes out of view, remove start to current row - increase start padding
+      if (isFirstCoupleRows && !entry.isIntersecting && entry.intersectionRatio === 0 && currentStartingRow < heights.value.length - 1) {
+        const removedRows = rendered.value.splice(0, rowIndex + 1);
+        currentStartingRow += removedRows.length;
+        let removedRowHeight = 0;
+
+        for (let row of removedRows) {
+          removedRowHeight += row[0];
+        }
+
+        // add height of padding between removed rows as well
+        removedRowHeight += (removedRows.length - 1) * 20;
+
+        startPadding += removedRowHeight;        
+        wasDomChanged = true;
+        return;
+      }
+
       // scrolling down, last row comes fully into view, render next row - decrease end padding
       if (isLastRow && entry.isIntersecting && entry.intersectionRatio === 1 && currentEndingRow < heights.value.length - 1) {
         rendered.value.push(heights.value[currentEndingRow]);
@@ -163,6 +198,7 @@ function addScrollObserver(){
         }
         
         wasDomChanged = true;
+        return;
       }
 
       // scrolling up, last row (or second last, if just rendered a new one) goes out of view, remove current row to the end - increase end padding
@@ -180,35 +216,7 @@ function addScrollObserver(){
 
         endPadding += removedRowHeight;
         wasDomChanged = true;
-      }
-
-      // scrolling up, first row comes fully into view, render the row before - decrease start padding
-      if (isFirstRow && entry.isIntersecting && entry.intersectionRatio === 1 && currentStartingRow > 0) {
-        currentStartingRow--;
-        rendered.value.unshift(heights.value[currentStartingRow]);
-
-        if (startPadding > 0) {
-          startPadding -= heights.value[currentStartingRow][0];
-        }
-        
-        wasDomChanged = true;
-      }
-
-      // scrolling down, first row (or second, if just rendered a new one) goes out of view, remove start to current row - increase start padding
-      if (isFirstCoupleRows && !entry.isIntersecting && entry.intersectionRatio === 0 && currentStartingRow > 0) {
-        const removedRows = rendered.value.splice(0, rowIndex);
-        currentStartingRow += removedRows.length;
-        let removedRowHeight = 0;
-
-        for (let row of removedRows) {
-          removedRowHeight += row[0];
-        }
-
-        // add height of padding between removed rows as well
-        removedRowHeight += (removedRows.length - 1) * 20;
-
-        startPadding += removedRowHeight;        
-        wasDomChanged = true;
+        return;
       }
 
 
