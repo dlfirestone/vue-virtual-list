@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { Ref, computed, nextTick, onBeforeMount, onBeforeUnmount, onMounted, onUnmounted, ref, useTemplateRef } from "vue";
+import { Ref, computed, nextTick, onBeforeMount, onBeforeUnmount, onMounted, onUnmounted, ref, render, useTemplateRef } from "vue";
 
 type Matrix = Array<Array<number>>;
 
@@ -58,6 +58,7 @@ let startPadding = 0;
 let endPadding = 0;
 
 let isInitialObserve = true;
+let wasDomChanged = false;
 
 onMounted(async () => {
   for (let i=0; i<itemCount; i+=rowCount){
@@ -124,45 +125,102 @@ function addScrollObserver(){
         return;
       }
 
+      const isFirstCoupleRows = rowIndex <= 1;
+      const isLastCoupleRows = rowIndex >= rendered.value.length - 2;
       const isFirstRow = rowIndex === 0;
       const isLastRow = rowIndex === rendered.value.length - 1;
 
-      if (!isFirstRow && !isLastRow) {
+      if (!isFirstCoupleRows && !isLastCoupleRows) {
         return;
       }
 
-      const rowHeight = heights.value[rowIndex][0]
+      const rowHeight = heights.value[rowIndex][0];
 
-      // If a row just scrolled out of view, un-render it and increase the height of the scroll container accordingly to compensate
-      if (entry.intersectionRatio === 0) {
-        rendered.value.splice(rowIndex, 1);
+      /* // If a row just scrolled out of view, un-render it and increase the height of the scroll container accordingly to compensate
+      if (!entry.isIntersecting) {
 
-        if (isFirstRow) {
+        if (isFirstCoupleRows && currentStartingRow < heights.value.length - 1) {
+          rendered.value.splice(0, rowIndex + 1);
           currentStartingRow++;
           startPadding += rowHeight;
+          wasDomChanged = true;
         }
-        else if (isLastRow) {
+        else if (isLastCoupleRows && currentStartingRow > 0) {
+          rendered.value.splice(rowIndex);
           currentStartingRow--;
           endPadding += rowHeight;
+          wasDomChanged = true;
+        }
+      } */
+
+      // scrolling down, last row comes fully into view, render next row - decrease end padding
+      if (isLastRow && entry.isIntersecting && entry.intersectionRatio === 1 && currentEndingRow < heights.value.length - 1) {
+        rendered.value.push(heights.value[currentEndingRow]);
+        currentEndingRow++;
+
+        if (endPadding > 0) {
+          endPadding -= heights.value[currentEndingRow][0];
         }
         
-        await reobserve();
+        wasDomChanged = true;
+      }
 
-        return;
+      // scrolling up, last row (or second last, if just rendered a new one) goes out of view, remove current row to the end - increase end padding
+      if (isLastCoupleRows && !entry.isIntersecting && entry.intersectionRatio === 0 && currentEndingRow > 0) {
+        const removedRows = rendered.value.splice(rowIndex);
+        currentEndingRow -= removedRows.length;
+        let removedRowHeight = 0;
+
+        for (let row of removedRows) {
+          removedRowHeight += row[0];
+        }
+
+        // add height of padding between removed rows as well
+        removedRowHeight += (removedRows.length - 1) * 20;
+
+        endPadding += removedRowHeight;
+        wasDomChanged = true;
+      }
+
+      // scrolling up, first row comes fully into view, render the row before - decrease start padding
+      if (isFirstRow && entry.isIntersecting && entry.intersectionRatio === 1 && currentStartingRow > 0) {
+        currentStartingRow--;
+        rendered.value.unshift(heights.value[currentStartingRow]);
+
+        if (startPadding > 0) {
+          startPadding -= heights.value[currentStartingRow][0];
+        }
+        
+        wasDomChanged = true;
+      }
+
+      // scrolling down, first row (or second, if just rendered a new one) goes out of view, remove start to current row - increase start padding
+      if (isFirstCoupleRows && !entry.isIntersecting && entry.intersectionRatio === 0 && currentStartingRow > 0) {
+        const removedRows = rendered.value.splice(0, rowIndex);
+        currentStartingRow += removedRows.length;
+        let removedRowHeight = 0;
+
+        for (let row of removedRows) {
+          removedRowHeight += row[0];
+        }
+
+        // add height of padding between removed rows as well
+        removedRowHeight += (removedRows.length - 1) * 20;
+
+        startPadding += removedRowHeight;        
+        wasDomChanged = true;
       }
 
 
-      // If a row just scrolled into view, render the next row and decrease the height of the scroll container accordingly to compensate
-      if (entry.intersectionRatio === 1) {
+      /* // If a row just scrolled into view, render the next row and decrease the height of the scroll container accordingly to compensate
+      if (entry.isIntersecting && entry.intersectionRatio >= .95) {
         if (isFirstRow && currentStartingRow > 0) {
           currentStartingRow--;
           rendered.value.unshift(heights.value[currentStartingRow]);
           if (startPadding > 0) {
             startPadding -= rowHeight;
           }
-        
-          await reobserve();
-          return;
+          wasDomChanged = true;
         }
  
         if (isLastRow && currentEndingRow < heights.value.length-1) {
@@ -171,18 +229,19 @@ function addScrollObserver(){
           if (endPadding > 0) {
             endPadding -= rowHeight;
           }
-        
-          await reobserve();
-          return;
+          wasDomChanged = true;
         }
-      }
+      } */
     });
 
-    await nextTick();
-
-    
-
-  }, { threshold: [0, 1] });
+    if (wasDomChanged) {
+      wasDomChanged = false;
+      await reobserve();
+    }
+  }, { 
+    threshold: [0, 1] 
+    //rootMargin: '20px 0px 20px 0px' 
+  });
 
   if (items.value) {
     items.value.forEach((item) => {
