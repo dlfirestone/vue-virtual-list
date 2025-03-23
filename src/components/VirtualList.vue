@@ -163,23 +163,6 @@ function addScrollObserver(){
 
       const rowHeight = heights.value[rowIndex][0];
 
-      /* // If a row just scrolled out of view, un-render it and increase the height of the scroll container accordingly to compensate
-      if (!entry.isIntersecting) {
-
-        if (isFirstCoupleRows && currentStartingRow < heights.value.length - 1) {
-          rendered.value.splice(0, rowIndex + 1);
-          currentStartingRow++;
-          startPadding += rowHeight;
-          wasDomChanged = true;
-        }
-        else if (isLastCoupleRows && currentStartingRow > 0) {
-          rendered.value.splice(rowIndex);
-          currentStartingRow--;
-          endPadding += rowHeight;
-          wasDomChanged = true;
-        }
-      } */
-
       // scrolling up, first row comes fully into view, render the row before - decrease start padding
       if (currentScrollDirection === ScrollDirection.Up 
         && isFirstRow 
@@ -262,27 +245,6 @@ function addScrollObserver(){
         return;
       }
 
-
-      /* // If a row just scrolled into view, render the next row and decrease the height of the scroll container accordingly to compensate
-      if (entry.isIntersecting && entry.intersectionRatio >= .95) {
-        if (isFirstRow && currentStartingRow > 0) {
-          currentStartingRow--;
-          rendered.value.unshift(heights.value[currentStartingRow]);
-          if (startPadding > 0) {
-            startPadding -= rowHeight;
-          }
-          wasDomChanged = true;
-        }
- 
-        if (isLastRow && currentEndingRow < heights.value.length-1) {
-          currentEndingRow++;
-          rendered.value.push(heights.value[currentEndingRow]);
-          if (endPadding > 0) {
-            endPadding -= rowHeight;
-          }
-          wasDomChanged = true;
-        }
-      } */
     });
 
     if (wasDomChanged) {
