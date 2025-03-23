@@ -6,7 +6,7 @@
     <p>heights: {{ heights.slice(0, 5) }}...</p>
     <p>rendered: {{ rendered }}</p>
     <p>scrollEnd: {{ scrollEnd }}</p>
-    <p>items: {{ items }}</p>
+    <!-- <p>items: {{ items }}</p> -->
     <div class="pad-start" :style="{height: `${startPadding}px`}"></div>
     <div class="grid">
       <template v-for="(row, rowIndex) in rendered">
@@ -174,14 +174,14 @@ function addScrollObserver(){
         rendered.value.unshift(heights.value[currentStartingRow]);
 
         if (startPadding > 0) {
-          startPadding -= heights.value[currentStartingRow][0];
+          startPadding -= heights.value[currentStartingRow][0] + gap;
         }
         
         wasDomChanged = true;
         return;
       }
 
-      // scrolling down, first row (or second, if just rendered a new one) goes out of view, remove start to current row - increase start padding
+      // scrolling down, first row (or second, if just rendered a new one) goes out of view, remove start to current row - increase start padding, add new row below
       if (currentScrollDirection === ScrollDirection.Down 
         && isFirstCoupleRows 
         && !entry.isIntersecting 
@@ -197,9 +197,20 @@ function addScrollObserver(){
         }
 
         // add height of padding between removed rows as well
-        removedRowHeight += (removedRows.length - 1) * 20;
+        removedRowHeight += removedRows.length * gap;
 
-        startPadding += removedRowHeight;        
+        startPadding += removedRowHeight + gap;  
+        
+        // add new row below
+        if (currentEndingRow < heights.value.length - 1) {
+          rendered.value.push(heights.value[currentEndingRow]);
+          currentEndingRow++;
+
+          if (endPadding > 0) {
+            endPadding -= heights.value[currentEndingRow][0] + gap;
+          }
+        }
+
         wasDomChanged = true;
         return;
       }
@@ -215,14 +226,14 @@ function addScrollObserver(){
         currentEndingRow++;
 
         if (endPadding > 0) {
-          endPadding -= heights.value[currentEndingRow][0];
+          endPadding -= heights.value[currentEndingRow][0] + gap;
         }
         
         wasDomChanged = true;
         return;
       }
 
-      // scrolling up, last row (or second last, if just rendered a new one) goes out of view, remove current row to the end - increase end padding
+      // scrolling up, last row (or second last, if just rendered a new one) goes out of view, remove current row to the end - increase end padding, add new row above
       if (currentScrollDirection === ScrollDirection.Up
         && isLastCoupleRows 
         && !entry.isIntersecting 
@@ -240,7 +251,18 @@ function addScrollObserver(){
         // add height of padding between removed rows as well
         removedRowHeight += (removedRows.length - 1) * 20;
 
-        endPadding += removedRowHeight;
+        endPadding += removedRowHeight + gap;
+
+        // add new row above so scrollbar doesn't get stuck
+        if (currentStartingRow > 0) {
+          currentStartingRow--;
+          rendered.value.unshift(heights.value[currentStartingRow]);
+
+          if (startPadding > 0) {
+            startPadding -= heights.value[currentStartingRow][0] + gap;
+          }
+        }
+
         wasDomChanged = true;
         return;
       }
@@ -252,8 +274,8 @@ function addScrollObserver(){
       await reobserve();
     }
   }, { 
-    threshold: observerThresholds 
-    //rootMargin: '20px 0px 20px 0px' 
+    threshold: observerThresholds
+    //rootMargin: '50px 0px 50px 0px' 
   });
 
   if (items.value) {
