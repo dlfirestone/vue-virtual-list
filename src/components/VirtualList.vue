@@ -4,7 +4,7 @@
     <p>rowCount: {{ rowCount }}</p>
     <p>renderedCount: {{ renderedCount }}</p>
     <p>heights: {{ heights.slice(0, 5) }}...</p>
-    <p>rendered: {{ rendered }}</p>
+    <!-- <p>rendered: {{ rendered }}</p> -->
     <p>scrollEnd: {{ scrollEnd }}</p>
     <!-- <p>items: {{ items }}</p> -->
     <div class="pad-start" :style="{height: `${startPadding}px`}"></div>
@@ -107,6 +107,13 @@ function addScrollObserver(){
   scrollObserver = new IntersectionObserver(async (entries) => {
 
     entries.forEach(async (entry, index) => {
+
+      currentScrollY = window.scrollY;
+      if (currentScrollY != lastScrollY) {
+        currentScrollDirection = currentScrollY > lastScrollY ? ScrollDirection.Down : ScrollDirection.Up;
+      }
+      lastScrollY = currentScrollY;
+
       if (index === entries.length - 1) {
         isInitialObserve = false;
         return;
@@ -144,11 +151,7 @@ function addScrollObserver(){
         return;
       }
 
-      currentScrollY = window.scrollY;
-      currentScrollDirection = currentScrollY > lastScrollY ? ScrollDirection.Down : ScrollDirection.Up;
-      lastScrollY = currentScrollY;
-
-      if (entry.intersectionRatio % 1 < 1 && entry.intersectionRatio % 1 > 0) {
+      if (entry.intersectionRatio >= .1 && entry.intersectionRatio <= .9) {
         return;
       } 
 
@@ -167,15 +170,19 @@ function addScrollObserver(){
       if (currentScrollDirection === ScrollDirection.Up 
         && isFirstRow 
         && entry.isIntersecting 
-        && entry.intersectionRatio === 1 
+        && entry.intersectionRatio >= .901 
         && currentStartingRow > 0
       ) {
         currentStartingRow--;
         rendered.value.unshift(heights.value[currentStartingRow]);
 
+        let removedPadding = heights.value[currentStartingRow][0] + gap;
+
         if (startPadding > 0) {
-          startPadding -= heights.value[currentStartingRow][0] + gap;
+          startPadding -= removedPadding;
         }
+
+        window.scrollTo(0, currentScrollY - removedPadding);
         
         wasDomChanged = true;
         return;
@@ -185,7 +192,7 @@ function addScrollObserver(){
       if (currentScrollDirection === ScrollDirection.Down 
         && isFirstCoupleRows 
         && !entry.isIntersecting 
-        && entry.intersectionRatio === 0 
+        && entry.intersectionRatio <= .099 
         && currentStartingRow < heights.value.length - 1
       ) {
         const removedRows = rendered.value.splice(0, rowIndex + 1);
@@ -199,7 +206,9 @@ function addScrollObserver(){
         // add height of padding between removed rows as well
         removedRowHeight += removedRows.length * gap;
 
-        startPadding += removedRowHeight + gap;  
+        startPadding += removedRowHeight;  
+
+        window.scrollTo(0, currentScrollY + removedRowHeight);
         
         // add new row below
         if (currentEndingRow < heights.value.length - 1) {
@@ -219,7 +228,7 @@ function addScrollObserver(){
       if (currentScrollDirection === ScrollDirection.Down
         && isLastRow 
         && entry.isIntersecting 
-        && entry.intersectionRatio === 1 
+        && entry.intersectionRatio >= .901 
         && currentEndingRow < heights.value.length - 1
       ) {
         rendered.value.push(heights.value[currentEndingRow]);
@@ -237,7 +246,7 @@ function addScrollObserver(){
       if (currentScrollDirection === ScrollDirection.Up
         && isLastCoupleRows 
         && !entry.isIntersecting 
-        && entry.intersectionRatio === 0 
+        && entry.intersectionRatio <= .099 
         && currentEndingRow > 0
       ) {
         const removedRows = rendered.value.splice(rowIndex);
@@ -259,8 +268,11 @@ function addScrollObserver(){
           rendered.value.unshift(heights.value[currentStartingRow]);
 
           if (startPadding > 0) {
-            startPadding -= heights.value[currentStartingRow][0] + gap;
+            let rowHeight = heights.value[currentStartingRow][0] + gap;
+            startPadding -= rowHeight;
           }
+
+          window.scrollTo(0, currentScrollY + rowHeight);
         }
 
         wasDomChanged = true;
