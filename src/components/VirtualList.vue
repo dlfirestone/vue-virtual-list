@@ -174,7 +174,7 @@ function addScrollObserver(){
         && entry.intersectionRatio >= .901 
         && currentEndingRow < heights.value.length - 1
       ) {
-        rendered.value.push(heights.value[currentEndingRow]);
+        rendered.value.push(heights.value[currentEndingRow + 1]);
         currentEndingRow++;
 
         if (endPadding > 0) {
@@ -210,8 +210,8 @@ function addScrollObserver(){
         
         // add new row below
         if (currentEndingRow < heights.value.length - 1) {
-          rendered.value.push(heights.value[currentEndingRow]);
           currentEndingRow++;
+          rendered.value.push(heights.value[currentEndingRow]);
 
           if (endPadding > 0) {
             endPadding -= heights.value[currentEndingRow][0] + gap;
@@ -222,7 +222,7 @@ function addScrollObserver(){
         return;
       }
 
-      /* // scrolling up, first row comes fully into view, render the row before - decrease start padding
+      // scrolling up, first row comes fully into view, render the row before - decrease start padding
       if (currentScrollDirection === ScrollDirection.Up 
         && isFirstRow 
         && entry.isIntersecting 
@@ -232,17 +232,18 @@ function addScrollObserver(){
         currentStartingRow--;
         rendered.value.unshift(heights.value[currentStartingRow]);
 
-        let removedPadding = heights.value[currentStartingRow][0] + gap;
+        let removedPadding = Math.max(...heights.value[currentStartingRow]) + gap;
 
         if (startPadding > 0) {
           startPadding -= removedPadding;
         }
 
         // window.scrollTo(0, currentScrollY - removedPadding);
+        currentScrollY = window.scrollY;
         
         wasDomChanged = true;
         return;
-      } */
+      }
 
       /* // scrolling up, last row (or second last, if just rendered a new one) goes out of view, remove current row to the end - increase end padding, add new row above
       if (currentScrollDirection === ScrollDirection.Up
