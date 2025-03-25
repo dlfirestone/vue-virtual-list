@@ -1,7 +1,7 @@
 <template>
   <div class="wrapper" ref="wrapper">
     <p>itemCount: {{ itemCount }}</p>
-    <p>rowCount: {{ rowCount }}</p>
+    <p>itemsPerRow: {{ itemsPerRow }}</p>
     <p>renderedCount: {{ renderedCount }}</p>
     <p>heights: {{ heights.slice(0, 5) }}...</p>
     <!-- <p>rendered: {{ rendered }}</p> -->
@@ -39,9 +39,9 @@ enum ScrollDirection {
 defineProps<{  }>();
 
 const itemCount = 50;
-const rowCount = 3;
-const gap = 20;
+const itemsPerRow = 3;
 const maxRenderedRows = 4;
+const gap = 20;
 
 const scrollEnd = useTemplateRef('scrollEnd');
 const wrapper = useTemplateRef('wrapper');
@@ -50,7 +50,7 @@ let items: Ref<Array<HTMLElement>> = ref([]);
 let renderedCount = ref(0);
 const heights: Ref<Matrix> = ref([]);
 
-renderedCount.value = rowCount * maxRenderedRows;
+renderedCount.value = itemsPerRow * maxRenderedRows;
 
 let scrollObserver: IntersectionObserver;
 let scrollEndObserver: IntersectionObserver;
@@ -71,9 +71,9 @@ let futureScrollY = 0;
 let currentScrollDirection = ScrollDirection.Down;
 
 onMounted(async () => {
-  for (let i=0; i<itemCount; i+=rowCount){
+  for (let i=0; i<itemCount; i+=itemsPerRow){
     const row: Array<number> = [];
-    for (let j=0; j<rowCount; j++){
+    for (let j=0; j<itemsPerRow; j++){
       row.push((Math.ceil(Math.random() * 200)));
     }
     heights.value.push(row);
@@ -94,7 +94,7 @@ onMounted(async () => {
 
 function getItemIndex(rowIndex: number, colIndex: number) {
   const itemRow = currentStartingRow + rowIndex;
-  return (itemRow * rowCount) + colIndex;
+  return (itemRow * itemsPerRow) + colIndex;
 }
 
 function addScrollObserver(){
@@ -308,12 +308,12 @@ function addScrollEndObserver() {
       scrollEndObserver.disconnect();
       return;
     }
-    else if (itemCount - renderedCount.value < rowCount) {
+    else if (itemCount - renderedCount.value < itemsPerRow) {
       renderedCount.value = itemCount;
     }
     else {
       if (scrollEnd.isIntersecting){
-        renderedCount.value += rowCount;
+        renderedCount.value += itemsPerRow;
       }
     }
     
