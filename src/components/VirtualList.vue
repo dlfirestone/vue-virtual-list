@@ -245,25 +245,25 @@ function addScrollObserver(){
         return;
       }
 
-      /* // scrolling up, last row (or second last, if just rendered a new one) goes out of view, remove current row to the end - increase end padding, add new row above
+      // scrolling up, last row (or second last, if just rendered a new one) goes out of view, remove current row to the end - increase end padding, add new row above
       if (currentScrollDirection === ScrollDirection.Up
         && isLastCoupleRows 
         && !entry.isIntersecting 
         && entry.intersectionRatio <= .099 
         && currentEndingRow > 0
       ) {
-        const removedRows = rendered.value.splice(rowIndex);
+        const removedRows = rendered.value.splice(renderedRowIndex);
         currentEndingRow -= removedRows.length;
         let removedRowHeight = 0;
 
         for (let row of removedRows) {
-          removedRowHeight += row[0];
+          removedRowHeight += Math.max(...row);
         }
 
         // add height of padding between removed rows as well
-        removedRowHeight += (removedRows.length - 1) * 20;
+        removedRowHeight += removedRows.length * 20;
 
-        endPadding += removedRowHeight + gap;
+        endPadding += removedRowHeight;
 
         // add new row above so scrollbar doesn't get stuck
         if (currentStartingRow > 0) {
@@ -271,7 +271,7 @@ function addScrollObserver(){
           rendered.value.unshift(heights.value[currentStartingRow]);
 
           if (startPadding > 0) {
-            let rowHeight = heights.value[currentStartingRow][0] + gap;
+            let rowHeight = Math.max(...heights.value[currentStartingRow]) + gap;
             startPadding -= rowHeight;
           }
 
@@ -280,7 +280,7 @@ function addScrollObserver(){
 
         wasDomChanged = true;
         return;
-      } */
+      }
 
     });
 
