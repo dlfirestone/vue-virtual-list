@@ -67,6 +67,7 @@ let wasDomChanged = false;
 
 let lastScrollY = 0;
 let currentScrollY = 0;
+let futureScrollY = 0;
 let currentScrollDirection = ScrollDirection.Down;
 
 onMounted(async () => {
@@ -184,19 +185,19 @@ function addScrollObserver(){
         return;
       }
 
-      /* // scrolling down, first row (or second, if just rendered a new one) goes out of view, remove start to current row - increase start padding, add new row below
+      // scrolling down, first row (or second, if just rendered a new one) goes out of view, remove start to current row - increase start padding, add new row below
       if (currentScrollDirection === ScrollDirection.Down 
         && isFirstCoupleRows 
         && !entry.isIntersecting 
         && entry.intersectionRatio <= .099 
         && currentStartingRow < heights.value.length - 1
       ) {
-        const removedRows = rendered.value.splice(0, rowIndex + 1);
+        const removedRows = rendered.value.splice(0, renderedRowIndex + 1);
         currentStartingRow += removedRows.length;
         let removedRowHeight = 0;
 
         for (let row of removedRows) {
-          removedRowHeight += row[0];
+          removedRowHeight += Math.max(...row);
         }
 
         // add height of padding between removed rows as well
@@ -204,7 +205,8 @@ function addScrollObserver(){
 
         startPadding += removedRowHeight;  
 
-        window.scrollTo(0, currentScrollY + removedRowHeight);
+        // window.scrollTo(0, currentScrollY + removedRowHeight);
+        currentScrollY = window.scrollY;
         
         // add new row below
         if (currentEndingRow < heights.value.length - 1) {
@@ -218,7 +220,7 @@ function addScrollObserver(){
 
         wasDomChanged = true;
         return;
-      } */
+      }
 
       /* // scrolling up, first row comes fully into view, render the row before - decrease start padding
       if (currentScrollDirection === ScrollDirection.Up 
@@ -236,7 +238,7 @@ function addScrollObserver(){
           startPadding -= removedPadding;
         }
 
-        window.scrollTo(0, currentScrollY - removedPadding);
+        // window.scrollTo(0, currentScrollY - removedPadding);
         
         wasDomChanged = true;
         return;
@@ -272,7 +274,7 @@ function addScrollObserver(){
             startPadding -= rowHeight;
           }
 
-          window.scrollTo(0, currentScrollY + rowHeight);
+          // window.scrollTo(0, currentScrollY + rowHeight);
         }
 
         wasDomChanged = true;
@@ -334,7 +336,9 @@ async function reobserve() {
   items.value = Array.from(document.querySelectorAll('[data-item-element]'));
   items.value.forEach((item) => {
     scrollObserver.observe(item);
-  });    
+  });
+
+  window.scrollTo(0, currentScrollY);
 }
 
 onBeforeUnmount(() => {
